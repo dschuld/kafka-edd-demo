@@ -2,7 +2,7 @@ package net.davidschuld.kafka_training.order
 
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
-import net.davidschuld.kafka_training.order.OrderOutboxRepository
+import org.apache.kafka.clients.producer.ProducerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.scheduling.annotation.Scheduled
@@ -24,7 +24,21 @@ class OutboxPublisher(
     fun publishPendingEvents() = runBlocking {
         outboxRepository.findByPublishedFalse().collect { outbox ->
             try {
-                kafkaTemplate.send(TOPIC, outbox.orderId.toString(), outbox.payload).await()
+
+                kafkaTemplate.send(
+                    ProducerRecord(
+                        TOPIC,
+                        null,
+                        outbox.orderId.toString(),
+                        outbox.payload,
+                        listOf(
+                            org.apache.kafka.common.header.internals.RecordHeader(
+                                "idempotency-key",
+                                outbox.id.toString().toByteArray()
+                            )
+                        )
+                    )
+                ).await()
 
                 outboxRepository.save(
                     outbox.copy(

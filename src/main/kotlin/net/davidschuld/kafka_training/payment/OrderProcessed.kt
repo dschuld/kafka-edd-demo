@@ -5,7 +5,7 @@ import org.springframework.data.relational.core.mapping.Column
 import org.springframework.data.relational.core.mapping.Table
 import java.util.UUID
 
-@Table("orders")
+@Table("orders_processed")
 data class OrderProcessed(
     @Id val id: UUID? = null,
     @Column("message_id") val messageId: String
