@@ -22,5 +22,6 @@ CREATE INDEX IF NOT EXISTS idx_order_outbox_published ON order_outbox (published
 CREATE TABLE IF NOT EXISTS orders_processed (
     id         UUID         DEFAULT gen_random_uuid() PRIMARY KEY,
     message_id VARCHAR(255) NOT NULL,
+    result     VARCHAR(255) NOT NULL,
     CONSTRAINT uq_orders_processed_message_id UNIQUE (message_id)
 );

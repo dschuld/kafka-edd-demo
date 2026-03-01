@@ -20,26 +20,39 @@ class PaymentProcessor(
             ?.toString(Charsets.UTF_8)
 
         if (idempotencyKey == null) {
-            log.warn("Message at offset {} has no idempotency key, processing without deduplication", record.offset())
+            log.warn(
+                "Message at offset {} has no idempotency key, processing without deduplication",
+                record.offset()
+            )
         } else if (processedRepository.existsByMessageId(idempotencyKey)) {
-            log.warn("Duplicate message detected [idempotencyKey={}, offset={}], skipping", idempotencyKey, record.offset())
+            log.warn(
+                "Duplicate message detected [idempotencyKey={}, offset={}], skipping",
+                idempotencyKey,
+                record.offset()
+            )
             return
         }
 
         val order = objectMapper.readValue(record.value(), Order::class.java)
         log.info("Received order event [orderId={}, offset={}]", order.id, record.offset())
-
-        when (val result = paymentConnector.processPayment(order)) {
+        val result = paymentConnector.processPayment(order)
+        when (result) {
             is PaymentResult.Success ->
-                log.info("Payment succeeded [orderId={}, transactionId={}]", order.id, result.transactionId)
+                log.info(
+                    "Payment succeeded [orderId={}, transactionId={}]",
+                    order.id,
+                    result.transactionId
+                )
+
             is PaymentResult.Failure ->
                 log.warn("Payment declined [orderId={}]", order.id)
+
             is PaymentResult.Timeout ->
                 log.warn("Payment timed out [orderId={}]", order.id)
         }
 
         if (idempotencyKey != null) {
-            processedRepository.save(OrderProcessed(messageId = idempotencyKey))
+            processedRepository.save(OrderProcessed(messageId = idempotencyKey, result = result))
         }
     }
 }
