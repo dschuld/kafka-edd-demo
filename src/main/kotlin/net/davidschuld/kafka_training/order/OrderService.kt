@@ -1,10 +1,7 @@
-package net.davidschuld.kafka_training.service
+package net.davidschuld.kafka_training.order
 
-import net.davidschuld.kafka_training.domain.Order
-import net.davidschuld.kafka_training.domain.OrderOutbox
-import net.davidschuld.kafka_training.repository.OrderOutboxRepository
-import net.davidschuld.kafka_training.repository.OrderRepository
-import net.davidschuld.kafka_training.web.CreateOrderRequest
+import net.davidschuld.kafka_training.order.OrderOutboxRepository
+import net.davidschuld.kafka_training.order.OrderRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import tools.jackson.databind.ObjectMapper

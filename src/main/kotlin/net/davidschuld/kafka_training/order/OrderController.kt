@@ -1,7 +1,5 @@
-package net.davidschuld.kafka_training.web
+package net.davidschuld.kafka_training.order
 
-import net.davidschuld.kafka_training.domain.Order
-import net.davidschuld.kafka_training.service.OrderService
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody

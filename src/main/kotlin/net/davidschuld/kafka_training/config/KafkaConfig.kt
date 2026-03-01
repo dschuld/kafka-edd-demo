@@ -1,6 +1,6 @@
 package net.davidschuld.kafka_training.config
 
-import net.davidschuld.kafka_training.outbox.OutboxPublisher
+import net.davidschuld.kafka_training.order.OutboxPublisher
 import org.apache.kafka.clients.admin.NewTopic
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

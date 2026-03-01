@@ -1,9 +1,8 @@
-package net.davidschuld.kafka_training.outbox
+package net.davidschuld.kafka_training.order
 
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
-import net.davidschuld.kafka_training.repository.OrderOutboxRepository
+import net.davidschuld.kafka_training.order.OrderOutboxRepository
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.scheduling.annotation.Scheduled
@@ -34,7 +33,11 @@ class OutboxPublisher(
                     )
                 )
 
-                log.info("Published outbox event [id={}] for order [id={}]", outbox.id, outbox.orderId)
+                log.info(
+                    "Published outbox event [id={}] for order [id={}]",
+                    outbox.id,
+                    outbox.orderId
+                )
             } catch (e: Exception) {
                 log.error("Failed to publish outbox event [id={}]", outbox.id, e)
             }
