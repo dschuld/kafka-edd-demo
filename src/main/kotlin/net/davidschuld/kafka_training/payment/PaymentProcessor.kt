@@ -14,7 +14,7 @@ class PaymentProcessor(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @KafkaListener(topics = ["order-events"], groupId = "payment-service")
-    fun onOrderEvent(record: ConsumerRecord<String, String>) {
+    suspend fun onOrderEvent(record: ConsumerRecord<String, String>) {
         val order = objectMapper.readValue(record.value(), Order::class.java)
         log.info("Received order event [orderId={}, offset={}]", order.id, record.offset())
 
