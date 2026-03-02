@@ -9,5 +9,5 @@ import java.util.UUID
 data class OrderProcessed(
     @Id val id: UUID? = null,
     @Column("message_id") val messageId: String,
-    val result: PaymentResult
+    val result: String
 )
