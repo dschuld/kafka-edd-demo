@@ -11,13 +11,21 @@ import kotlin.system.exitProcess
 class PaymentProcessor(
     private val paymentConnector: PaymentConnector,
     private val objectMapper: ObjectMapper,
-    private val processedRepository: OrderProcessedRepository,
+    private val processedRepository: ProcessedRepository,
+    private val outboxRepository: PaymentOutboxRepository,
     private val paymentProperties: PaymentProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @KafkaListener(topics = ["order-events"], groupId = "payment-service")
-    suspend fun onOrderEvent(record: ConsumerRecord<String, String>) {
+    @KafkaListener(topics = ["inventory-events"], groupId = "payment-service")
+    suspend fun onInventoryEvent(record: ConsumerRecord<String, String>) {
+        val eventType = record.headers().headers("event-type").firstOrNull()?.value()
+            ?.toString(Charsets.UTF_8)
+
+        if (eventType != "INVENTORY_RESERVED") {
+            return
+        }
+
         val idempotencyKey = record.headers().headers("idempotency-key").firstOrNull()?.value()
             ?.toString(Charsets.UTF_8)
 
@@ -36,38 +44,48 @@ class PaymentProcessor(
         }
 
         if (paymentProperties.crashSimulation == CrashSimulation.AFTER_READ) {
-            // If the consumer crashes here, no side effects have occured and the message will
-            // safely be reprocessed on restart.
             log.warn("Crash simulation: AFTER_READ — exiting before payment processing")
             exitProcess(1)
         }
 
         val order = objectMapper.readValue(record.value(), Order::class.java)
-        log.info("Received order event [orderId={}, offset={}]", order.id, record.offset())
+        log.info("Received INVENTORY_RESERVED [orderId={}, offset={}]", order.id, record.offset())
         val result = paymentConnector.processPayment(order)
+        val paymentEventType: String
+
         when (result) {
-            is PaymentResult.Success ->
+            is PaymentResult.Success -> {
+                paymentEventType = "PAYMENT_SUCCESS"
                 log.info(
                     "Payment succeeded [orderId={}, transactionId={}]",
                     order.id,
                     result.transactionId
                 )
+            }
 
-            is PaymentResult.Failure ->
+            is PaymentResult.Failure -> {
+                paymentEventType = "PAYMENT_FAILED"
                 log.warn("Payment declined [orderId={}]", order.id)
+            }
 
-            is PaymentResult.Timeout ->
+            is PaymentResult.Timeout -> {
+                paymentEventType = "PAYMENT_FAILED"
                 log.warn("Payment timed out [orderId={}]", order.id)
+            }
         }
 
         if (paymentProperties.crashSimulation == CrashSimulation.AFTER_PROCESSING) {
-            // If the consumer crashes here, the offset will not be committed, and the message will be reprocessed on restart.
-            // Each time the consumer crashes here, the message will be reprocessed because it
-            // cannot be found in the table of processed messages.
             log.warn("Crash simulation: AFTER_PROCESSING — exiting before saving deduplication record")
             exitProcess(1)
-
         }
+
+        outboxRepository.save(
+            PaymentOutbox(
+                orderId = order.id!!,
+                eventType = paymentEventType,
+                payload = record.value(),
+            )
+        )
 
         if (idempotencyKey != null) {
             processedRepository.save(
@@ -79,12 +97,8 @@ class PaymentProcessor(
         }
 
         if (paymentProperties.crashSimulation == CrashSimulation.AFTER_SAVE) {
-            // If the consumer crashes here, the offset will not be committed, and the message will be reprocessed on restart.
-            // At the reprocessing, the idempotency key will be detected, and the payment will not be processed again,
-            // but the offset will be committed, so the message will not be reprocessed again.
             log.warn("Crash simulation: AFTER_SAVE — exiting before offset is committed")
             exitProcess(1)
-
         }
     }
 }

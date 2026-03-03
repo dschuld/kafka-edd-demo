@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
 
 @Component
-class OutboxPublisher(
+class OrderEventPublisher(
     private val outboxRepository: OrderOutboxRepository,
     private val kafkaTemplate: KafkaTemplate<String, String>,
 ) {
@@ -35,10 +35,14 @@ class OutboxPublisher(
                             org.apache.kafka.common.header.internals.RecordHeader(
                                 "idempotency-key",
                                 outbox.id.toString().toByteArray()
-                            )
+                            ),
+                            org.apache.kafka.common.header.internals.RecordHeader(
+                                "event-type",
+                                outbox.eventType.toByteArray()
+                            ),
                         )
                     )
-                ).await()
+            ).await()
 
                 outboxRepository.save(
                     outbox.copy(
