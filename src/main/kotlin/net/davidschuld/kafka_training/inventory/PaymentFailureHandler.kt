@@ -1,5 +1,6 @@
 package net.davidschuld.kafka_training.inventory
 
+import net.davidschuld.kafka_training.config.EventTypes
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -18,7 +19,7 @@ class PaymentFailureHandler(
         val eventType = record.headers().headers("event-type").firstOrNull()?.value()
             ?.toString(Charsets.UTF_8)
 
-        if (eventType != "PAYMENT_FAILED") {
+        if (eventType != EventTypes.PAYMENT_FAILED) {
             return
         }
 

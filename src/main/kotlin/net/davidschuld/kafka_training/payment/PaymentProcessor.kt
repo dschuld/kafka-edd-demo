@@ -1,5 +1,6 @@
 package net.davidschuld.kafka_training.payment
 
+import net.davidschuld.kafka_training.config.EventTypes
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -22,7 +23,7 @@ class PaymentProcessor(
         val eventType = record.headers().headers("event-type").firstOrNull()?.value()
             ?.toString(Charsets.UTF_8)
 
-        if (eventType != "INVENTORY_RESERVED") {
+        if (eventType != EventTypes.INVENTORY_RESERVED) {
             return
         }
 
@@ -55,7 +56,7 @@ class PaymentProcessor(
 
         when (result) {
             is PaymentResult.Success -> {
-                paymentEventType = "PAYMENT_SUCCESS"
+                paymentEventType = EventTypes.PAYMENT_SUCCESS
                 log.info(
                     "Payment succeeded [orderId={}, transactionId={}]",
                     order.id,
@@ -64,12 +65,12 @@ class PaymentProcessor(
             }
 
             is PaymentResult.Failure -> {
-                paymentEventType = "PAYMENT_FAILED"
+                paymentEventType = EventTypes.PAYMENT_FAILED
                 log.warn("Payment declined [orderId={}]", order.id)
             }
 
             is PaymentResult.Timeout -> {
-                paymentEventType = "PAYMENT_FAILED"
+                paymentEventType = EventTypes.PAYMENT_FAILED
                 log.warn("Payment timed out [orderId={}]", order.id)
             }
         }

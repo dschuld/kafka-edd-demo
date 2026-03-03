@@ -1,5 +1,6 @@
 package net.davidschuld.kafka_training.inventory
 
+import net.davidschuld.kafka_training.config.EventTypes
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -42,7 +43,7 @@ class InventoryProcessor(
 
         when (result) {
             is ReservationResult.Reserved -> {
-                eventType = "INVENTORY_RESERVED"
+                eventType = EventTypes.INVENTORY_RESERVED
                 log.info(
                     "Inventory reserved [orderId={}, reservationId={}]",
                     order.id,
@@ -50,7 +51,7 @@ class InventoryProcessor(
                 )
             }
             is ReservationResult.Failed -> {
-                eventType = "RESERVATION_FAILED"
+                eventType = EventTypes.RESERVATION_FAILED
                 log.warn("Inventory reservation failed [orderId={}]", order.id)
             }
         }

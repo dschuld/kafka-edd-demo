@@ -1,5 +1,6 @@
 package net.davidschuld.kafka_training.order
 
+import net.davidschuld.kafka_training.config.EventTypes
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -30,7 +31,7 @@ class OrderService(
         outboxRepository.save(
             OrderOutbox(
                 orderId = order.id!!,
-                eventType = "ORDER_CREATED",
+                eventType = EventTypes.ORDER_CREATED,
                 payload = payload,
             )
         )
@@ -52,5 +53,21 @@ class OrderService(
         }
         orderRepository.save(order.copy(status = "CANCELLED"))
         log.info("Order cancelled [id={}]", orderId)
+    }
+
+    @Transactional
+    suspend fun confirmOrder(orderId: String) {
+        val id = UUID.fromString(orderId)
+        val order = orderRepository.findById(id)
+        if (order == null) {
+            log.warn("Cannot confirm order [id={}]: not found", orderId)
+            return
+        }
+        if (order.status == "CONFIRMED") {
+            log.info("Order [id={}] is already confirmed", orderId)
+            return
+        }
+        orderRepository.save(order.copy(status = "CONFIRMED"))
+        log.info("Order confirmed [id={}]", orderId)
     }
 }

@@ -1,5 +1,6 @@
 package net.davidschuld.kafka_training.order
 
+import net.davidschuld.kafka_training.config.EventTypes
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -17,7 +18,7 @@ class OrderEventConsumer(
         val eventType = record.headers().headers("event-type").firstOrNull()?.value()
             ?.toString(Charsets.UTF_8)
 
-        if (eventType != "RESERVATION_FAILED" && eventType != "PAYMENT_FAILED") {
+        if (eventType !in HANDLED_EVENTS) {
             return
         }
 
@@ -35,15 +36,27 @@ class OrderEventConsumer(
 
         val orderId = record.key()
         log.info("Received {} for order [id={}, offset={}]", eventType, orderId, record.offset())
-        orderService.cancelOrder(orderId)
+
+        when (eventType) {
+            EventTypes.PAYMENT_SUCCESS -> orderService.confirmOrder(orderId)
+            EventTypes.RESERVATION_FAILED, EventTypes.PAYMENT_FAILED -> orderService.cancelOrder(orderId)
+        }
 
         if (idempotencyKey != null) {
             processedRepository.save(
                 OrderProcessed(
                     messageId = idempotencyKey,
-                    result = eventType,
+                    result = eventType!!,
                 )
             )
         }
+    }
+
+    companion object {
+        private val HANDLED_EVENTS = setOf(
+            EventTypes.RESERVATION_FAILED,
+            EventTypes.PAYMENT_FAILED,
+            EventTypes.PAYMENT_SUCCESS,
+        )
     }
 }
