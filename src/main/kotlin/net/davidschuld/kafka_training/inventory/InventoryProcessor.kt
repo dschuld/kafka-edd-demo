@@ -1,23 +1,24 @@
 package net.davidschuld.kafka_training.inventory
 
 import net.davidschuld.kafka_training.config.EventTypes
+import net.davidschuld.kafka_training.schemas.OrderCreated
+import net.davidschuld.kafka_training.schemas.toJson
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
+import java.util.UUID
 
 @Component
 class InventoryProcessor(
     private val inventoryConnector: InventoryConnector,
-    private val objectMapper: ObjectMapper,
     private val processedRepository: InventoryProcessedRepository,
     private val outboxRepository: InventoryOutboxRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @KafkaListener(topics = ["order-events"], groupId = "inventory-service")
-    suspend fun onOrderEvent(record: ConsumerRecord<String, String>) {
+    suspend fun onOrderEvent(record: ConsumerRecord<String, OrderCreated>) {
         val idempotencyKey = record.headers().headers("idempotency-key").firstOrNull()?.value()
             ?.toString(Charsets.UTF_8)
 
@@ -35,7 +36,7 @@ class InventoryProcessor(
             return
         }
 
-        val order = objectMapper.readValue(record.value(), Order::class.java)
+        val order = record.value()
         log.info("Received ORDER_CREATED [orderId={}, offset={}]", order.id, record.offset())
 
         val result = inventoryConnector.reserveStock(order)
@@ -58,9 +59,9 @@ class InventoryProcessor(
 
         outboxRepository.save(
             InventoryOutbox(
-                orderId = order.id!!,
+                orderId = UUID.fromString(order.id.toString()),
                 eventType = eventType,
-                payload = record.value(),
+                payload = order.toJson(),
             )
         )
 

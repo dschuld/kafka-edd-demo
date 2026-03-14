@@ -1,6 +1,7 @@
 package net.davidschuld.kafka_training.order
 
 import net.davidschuld.kafka_training.config.EventTypes
+import net.davidschuld.kafka_training.schemas.OrderCreated
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -14,7 +15,7 @@ class OrderEventConsumer(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @KafkaListener(topics = ["inventory-events", "payment-events"], groupId = "order-service")
-    suspend fun onEvent(record: ConsumerRecord<String, String>) {
+    suspend fun onEvent(record: ConsumerRecord<String, OrderCreated>) {
         val eventType = record.headers().headers("event-type").firstOrNull()?.value()
             ?.toString(Charsets.UTF_8)
 

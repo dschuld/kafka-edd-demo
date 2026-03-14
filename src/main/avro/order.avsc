@@ -1,0 +1,34 @@
+{
+  "namespace": "net.davidschuld.kafka_training.schemas",
+  "type": "record",
+  "name": "OrderCreated",
+  "fields": [
+    {
+      "name": "id",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    {
+      "name": "customer_id",
+      "type": "string"
+    },
+    {
+      "name": "product",
+      "type": "string"
+    },
+    {
+      "name": "quantity",
+      "type": "int"
+    },
+    {
+      "name": "status",
+      "type": "string"
+    },
+    {
+      "name": "created_at",
+      "type": "string"
+    }
+  ]
+}

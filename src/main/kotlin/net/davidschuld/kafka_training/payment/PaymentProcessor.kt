@@ -1,17 +1,18 @@
 package net.davidschuld.kafka_training.payment
 
 import net.davidschuld.kafka_training.config.EventTypes
+import net.davidschuld.kafka_training.schemas.OrderCreated
+import net.davidschuld.kafka_training.schemas.toJson
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
+import java.util.UUID
 import kotlin.system.exitProcess
 
 @Component
 class PaymentProcessor(
     private val paymentConnector: PaymentConnector,
-    private val objectMapper: ObjectMapper,
     private val processedRepository: ProcessedRepository,
     private val outboxRepository: PaymentOutboxRepository,
     private val paymentProperties: PaymentProperties,
@@ -19,7 +20,7 @@ class PaymentProcessor(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @KafkaListener(topics = ["inventory-events"], groupId = "payment-service")
-    suspend fun onInventoryEvent(record: ConsumerRecord<String, String>) {
+    suspend fun onInventoryEvent(record: ConsumerRecord<String, OrderCreated>) {
         val eventType = record.headers().headers("event-type").firstOrNull()?.value()
             ?.toString(Charsets.UTF_8)
 
@@ -49,7 +50,7 @@ class PaymentProcessor(
             exitProcess(1)
         }
 
-        val order = objectMapper.readValue(record.value(), Order::class.java)
+        val order = record.value()
         log.info("Received INVENTORY_RESERVED [orderId={}, offset={}]", order.id, record.offset())
         val result = paymentConnector.processPayment(order)
         val paymentEventType: String
@@ -82,9 +83,9 @@ class PaymentProcessor(
 
         outboxRepository.save(
             PaymentOutbox(
-                orderId = order.id!!,
+                orderId = UUID.fromString(order.id.toString()),
                 eventType = paymentEventType,
-                payload = record.value(),
+                payload = order.toJson(),
             )
         )
 

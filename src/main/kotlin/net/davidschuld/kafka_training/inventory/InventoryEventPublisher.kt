@@ -2,6 +2,8 @@ package net.davidschuld.kafka_training.inventory
 
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
+import net.davidschuld.kafka_training.schemas.OrderCreated
+import net.davidschuld.kafka_training.schemas.orderCreatedFromJson
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.header.internals.RecordHeader
 import org.slf4j.LoggerFactory
@@ -13,7 +15,7 @@ import java.time.OffsetDateTime
 @Component
 class InventoryEventPublisher(
     private val outboxRepository: InventoryOutboxRepository,
-    private val kafkaTemplate: KafkaTemplate<String, String>,
+    private val kafkaTemplate: KafkaTemplate<String, OrderCreated>,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -21,12 +23,14 @@ class InventoryEventPublisher(
     fun publishPendingEvents() = runBlocking {
         outboxRepository.findByPublishedFalse().collect { outbox ->
             try {
+                val avroOrder = orderCreatedFromJson(outbox.payload)
+
                 kafkaTemplate.send(
                     ProducerRecord(
                         TOPIC,
                         null,
                         outbox.orderId.toString(),
-                        outbox.payload,
+                        avroOrder,
                         listOf(
                             RecordHeader("idempotency-key", outbox.id.toString().toByteArray()),
                             RecordHeader("event-type", outbox.eventType.toByteArray()),

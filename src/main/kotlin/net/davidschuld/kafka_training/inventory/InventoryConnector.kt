@@ -1,8 +1,10 @@
 package net.davidschuld.kafka_training.inventory
 
 import kotlinx.coroutines.delay
+import net.davidschuld.kafka_training.schemas.OrderCreated
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.util.UUID
 import kotlin.random.Random
 
 sealed interface ReservationResult {
@@ -17,13 +19,13 @@ class InventoryConnector {
 
     // Simulates communication with an external inventory system.
     // Returns Reserved (~80%) or Failed (~20%).
-    suspend fun reserveStock(order: Order): ReservationResult {
+    suspend fun reserveStock(order: OrderCreated): ReservationResult {
         log.debug("Reserving stock for order [id={}]", order.id)
 
         return when (Random.nextInt(10)) {
             in 0..7 -> {
                 delay(200)
-                ReservationResult.Reserved(reservationId = java.util.UUID.randomUUID().toString())
+                ReservationResult.Reserved(reservationId = UUID.randomUUID().toString())
             }
             else -> {
                 delay(300)
@@ -32,7 +34,7 @@ class InventoryConnector {
         }
     }
 
-    suspend fun cancelReservation(orderId: java.util.UUID) {
+    suspend fun cancelReservation(orderId: UUID) {
         log.info("Cancelling inventory reservation for order [id={}]", orderId)
         delay(100)
         log.info("Reservation cancelled for order [id={}]", orderId)
