@@ -1,0 +1,15 @@
+{
+  "namespace": "net.davidschuld.kafka_training.schemas",
+  "type": "record",
+  "name": "InventoryReserved",
+  "fields": [
+    {
+      "name": "order_id",
+      "type": "string"
+    },
+    {
+      "name": "reservation_id",
+      "type": "string"
+    }
+  ]
+}

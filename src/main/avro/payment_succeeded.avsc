@@ -1,0 +1,15 @@
+{
+  "namespace": "net.davidschuld.kafka_training.schemas",
+  "type": "record",
+  "name": "PaymentSucceeded",
+  "fields": [
+    {
+      "name": "order_id",
+      "type": "string"
+    },
+    {
+      "name": "transaction_id",
+      "type": "string"
+    }
+  ]
+}

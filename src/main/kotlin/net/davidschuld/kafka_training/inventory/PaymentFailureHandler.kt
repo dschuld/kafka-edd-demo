@@ -1,12 +1,11 @@
 package net.davidschuld.kafka_training.inventory
 
-import net.davidschuld.kafka_training.config.EventTypes
-import net.davidschuld.kafka_training.schemas.OrderCreated
+import net.davidschuld.kafka_training.schemas.PaymentFailed
+import org.apache.avro.specific.SpecificRecord
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 @Component
 class PaymentFailureHandler(
@@ -15,16 +14,11 @@ class PaymentFailureHandler(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @KafkaListener(topics = ["payment-events"], groupId = "inventory-service")
-    suspend fun onPaymentEvent(record: ConsumerRecord<String, OrderCreated>) {
-        val eventType = record.headers().headers("event-type").firstOrNull()?.value()
-            ?.toString(Charsets.UTF_8)
+    suspend fun onPaymentEvent(record: ConsumerRecord<String, SpecificRecord>) {
+        val event = record.value()
+        if (event !is PaymentFailed) return
 
-        if (eventType != EventTypes.PAYMENT_FAILED) {
-            return
-        }
-
-        val order = record.value()
-        log.info("Received PAYMENT_FAILED for order [id={}], cancelling reservation", order.id)
-        inventoryConnector.cancelReservation(UUID.fromString(order.id.toString()))
+        log.info("Received PaymentFailed for order [id={}], cancelling reservation", event.orderId)
+        inventoryConnector.cancelReservation(event.orderId)
     }
 }

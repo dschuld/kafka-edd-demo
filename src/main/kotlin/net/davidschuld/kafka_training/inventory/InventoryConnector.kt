@@ -17,10 +17,8 @@ class InventoryConnector {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    // Simulates communication with an external inventory system.
-    // Returns Reserved (~80%) or Failed (~20%).
     suspend fun reserveStock(order: OrderCreated): ReservationResult {
-        log.debug("Reserving stock for order [id={}]", order.id)
+        log.debug("Reserving stock for order [id={}]", order.orderId)
 
         return when (Random.nextInt(10)) {
             in 0..7 -> {
@@ -34,7 +32,7 @@ class InventoryConnector {
         }
     }
 
-    suspend fun cancelReservation(orderId: UUID) {
+    suspend fun cancelReservation(orderId: String) {
         log.info("Cancelling inventory reservation for order [id={}]", orderId)
         delay(100)
         log.info("Reservation cancelled for order [id={}]", orderId)

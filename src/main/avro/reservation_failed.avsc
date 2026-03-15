@@ -1,0 +1,19 @@
+{
+  "namespace": "net.davidschuld.kafka_training.schemas",
+  "type": "record",
+  "name": "ReservationFailed",
+  "fields": [
+    {
+      "name": "order_id",
+      "type": "string"
+    },
+    {
+      "name": "reason",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

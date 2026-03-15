@@ -1,8 +1,11 @@
 package net.davidschuld.kafka_training.payment
 
 import net.davidschuld.kafka_training.config.EventTypes
-import net.davidschuld.kafka_training.schemas.OrderCreated
+import net.davidschuld.kafka_training.schemas.InventoryReserved
+import net.davidschuld.kafka_training.schemas.PaymentFailed
+import net.davidschuld.kafka_training.schemas.PaymentSucceeded
 import net.davidschuld.kafka_training.schemas.toJson
+import org.apache.avro.specific.SpecificRecord
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -20,13 +23,9 @@ class PaymentProcessor(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @KafkaListener(topics = ["inventory-events"], groupId = "payment-service")
-    suspend fun onInventoryEvent(record: ConsumerRecord<String, OrderCreated>) {
-        val eventType = record.headers().headers("event-type").firstOrNull()?.value()
-            ?.toString(Charsets.UTF_8)
-
-        if (eventType != EventTypes.INVENTORY_RESERVED) {
-            return
-        }
+    suspend fun onInventoryEvent(record: ConsumerRecord<String, SpecificRecord>) {
+        val event = record.value()
+        if (event !is InventoryReserved) return
 
         val idempotencyKey = record.headers().headers("idempotency-key").firstOrNull()?.value()
             ?.toString(Charsets.UTF_8)
@@ -50,29 +49,44 @@ class PaymentProcessor(
             exitProcess(1)
         }
 
-        val order = record.value()
-        log.info("Received INVENTORY_RESERVED [orderId={}, offset={}]", order.id, record.offset())
-        val result = paymentConnector.processPayment(order)
+        log.info("Received InventoryReserved [orderId={}, offset={}]", event.orderId, record.offset())
+        val result = paymentConnector.processPayment(event.orderId)
         val paymentEventType: String
+        val payload: String
 
         when (result) {
             is PaymentResult.Success -> {
                 paymentEventType = EventTypes.PAYMENT_SUCCESS
+                payload = PaymentSucceeded.newBuilder()
+                    .setOrderId(event.orderId)
+                    .setTransactionId(result.transactionId)
+                    .build()
+                    .toJson()
                 log.info(
                     "Payment succeeded [orderId={}, transactionId={}]",
-                    order.id,
+                    event.orderId,
                     result.transactionId
                 )
             }
 
             is PaymentResult.Failure -> {
                 paymentEventType = EventTypes.PAYMENT_FAILED
-                log.warn("Payment declined [orderId={}]", order.id)
+                payload = PaymentFailed.newBuilder()
+                    .setOrderId(event.orderId)
+                    .setReason("Payment declined")
+                    .build()
+                    .toJson()
+                log.warn("Payment declined [orderId={}]", event.orderId)
             }
 
             is PaymentResult.Timeout -> {
                 paymentEventType = EventTypes.PAYMENT_FAILED
-                log.warn("Payment timed out [orderId={}]", order.id)
+                payload = PaymentFailed.newBuilder()
+                    .setOrderId(event.orderId)
+                    .setReason("Payment timed out")
+                    .build()
+                    .toJson()
+                log.warn("Payment timed out [orderId={}]", event.orderId)
             }
         }
 
@@ -83,9 +97,9 @@ class PaymentProcessor(
 
         outboxRepository.save(
             PaymentOutbox(
-                orderId = UUID.fromString(order.id.toString()),
+                orderId = UUID.fromString(event.orderId),
                 eventType = paymentEventType,
-                payload = order.toJson(),
+                payload = payload,
             )
         )
 

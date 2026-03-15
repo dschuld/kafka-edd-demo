@@ -2,8 +2,11 @@ package net.davidschuld.kafka_training.inventory
 
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
-import net.davidschuld.kafka_training.schemas.OrderCreated
-import net.davidschuld.kafka_training.schemas.orderCreatedFromJson
+import net.davidschuld.kafka_training.config.EventTypes
+import net.davidschuld.kafka_training.schemas.InventoryReserved
+import net.davidschuld.kafka_training.schemas.ReservationFailed
+import net.davidschuld.kafka_training.schemas.avroFromJson
+import org.apache.avro.specific.SpecificRecord
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.header.internals.RecordHeader
 import org.slf4j.LoggerFactory
@@ -15,7 +18,7 @@ import java.time.OffsetDateTime
 @Component
 class InventoryEventPublisher(
     private val outboxRepository: InventoryOutboxRepository,
-    private val kafkaTemplate: KafkaTemplate<String, OrderCreated>,
+    private val kafkaTemplate: KafkaTemplate<String, SpecificRecord>,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -23,17 +26,20 @@ class InventoryEventPublisher(
     fun publishPendingEvents() = runBlocking {
         outboxRepository.findByPublishedFalse().collect { outbox ->
             try {
-                val avroOrder = orderCreatedFromJson(outbox.payload)
+                val avroEvent: SpecificRecord = when (outbox.eventType) {
+                    EventTypes.INVENTORY_RESERVED -> avroFromJson<InventoryReserved>(outbox.payload)
+                    EventTypes.RESERVATION_FAILED -> avroFromJson<ReservationFailed>(outbox.payload)
+                    else -> error("Unknown event type: ${outbox.eventType}")
+                }
 
                 kafkaTemplate.send(
                     ProducerRecord(
                         TOPIC,
                         null,
                         outbox.orderId.toString(),
-                        avroOrder,
+                        avroEvent,
                         listOf(
                             RecordHeader("idempotency-key", outbox.id.toString().toByteArray()),
-                            RecordHeader("event-type", outbox.eventType.toByteArray()),
                         )
                     )
                 ).await()

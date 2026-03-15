@@ -1,7 +1,6 @@
 package net.davidschuld.kafka_training.payment
 
 import kotlinx.coroutines.delay
-import net.davidschuld.kafka_training.schemas.OrderCreated
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.UUID
@@ -18,10 +17,8 @@ class PaymentConnector {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    // Simulates communication with an external payment provider.
-    // Returns Success (~70%), Failure (~20%), or Timeout (~10%).
-    suspend fun processPayment(order: OrderCreated): PaymentResult {
-        log.debug("Sending payment request for order [id={}]", order.id)
+    suspend fun processPayment(orderId: String): PaymentResult {
+        log.debug("Sending payment request for order [id={}]", orderId)
 
         return when (Random.nextInt(10)) {
             in 0..6 -> {

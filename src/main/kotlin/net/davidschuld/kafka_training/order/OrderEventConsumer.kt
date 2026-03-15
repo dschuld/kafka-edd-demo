@@ -1,7 +1,9 @@
 package net.davidschuld.kafka_training.order
 
-import net.davidschuld.kafka_training.config.EventTypes
-import net.davidschuld.kafka_training.schemas.OrderCreated
+import net.davidschuld.kafka_training.schemas.PaymentFailed
+import net.davidschuld.kafka_training.schemas.PaymentSucceeded
+import net.davidschuld.kafka_training.schemas.ReservationFailed
+import org.apache.avro.specific.SpecificRecord
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -15,11 +17,10 @@ class OrderEventConsumer(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @KafkaListener(topics = ["inventory-events", "payment-events"], groupId = "order-service")
-    suspend fun onEvent(record: ConsumerRecord<String, OrderCreated>) {
-        val eventType = record.headers().headers("event-type").firstOrNull()?.value()
-            ?.toString(Charsets.UTF_8)
+    suspend fun onEvent(record: ConsumerRecord<String, SpecificRecord>) {
+        val event = record.value()
 
-        if (eventType !in HANDLED_EVENTS) {
+        if (event !is PaymentSucceeded && event !is ReservationFailed && event !is PaymentFailed) {
             return
         }
 
@@ -36,28 +37,21 @@ class OrderEventConsumer(
         }
 
         val orderId = record.key()
-        log.info("Received {} for order [id={}, offset={}]", eventType, orderId, record.offset())
+        val eventName = event::class.simpleName
+        log.info("Received {} for order [id={}, offset={}]", eventName, orderId, record.offset())
 
-        when (eventType) {
-            EventTypes.PAYMENT_SUCCESS -> orderService.confirmOrder(orderId)
-            EventTypes.RESERVATION_FAILED, EventTypes.PAYMENT_FAILED -> orderService.cancelOrder(orderId)
+        when (event) {
+            is PaymentSucceeded -> orderService.confirmOrder(orderId)
+            is ReservationFailed, is PaymentFailed -> orderService.cancelOrder(orderId)
         }
 
         if (idempotencyKey != null) {
             processedRepository.save(
                 OrderProcessed(
                     messageId = idempotencyKey,
-                    result = eventType!!,
+                    result = eventName!!,
                 )
             )
         }
-    }
-
-    companion object {
-        private val HANDLED_EVENTS = setOf(
-            EventTypes.RESERVATION_FAILED,
-            EventTypes.PAYMENT_FAILED,
-            EventTypes.PAYMENT_SUCCESS,
-        )
     }
 }

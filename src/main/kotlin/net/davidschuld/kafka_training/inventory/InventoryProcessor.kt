@@ -1,7 +1,9 @@
 package net.davidschuld.kafka_training.inventory
 
 import net.davidschuld.kafka_training.config.EventTypes
+import net.davidschuld.kafka_training.schemas.InventoryReserved
 import net.davidschuld.kafka_training.schemas.OrderCreated
+import net.davidschuld.kafka_training.schemas.ReservationFailed
 import net.davidschuld.kafka_training.schemas.toJson
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
@@ -37,31 +39,41 @@ class InventoryProcessor(
         }
 
         val order = record.value()
-        log.info("Received ORDER_CREATED [orderId={}, offset={}]", order.id, record.offset())
+        log.info("Received OrderCreated [orderId={}, offset={}]", order.orderId, record.offset())
 
         val result = inventoryConnector.reserveStock(order)
         val eventType: String
+        val payload: String
 
         when (result) {
             is ReservationResult.Reserved -> {
                 eventType = EventTypes.INVENTORY_RESERVED
+                payload = InventoryReserved.newBuilder()
+                    .setOrderId(order.orderId)
+                    .setReservationId(result.reservationId)
+                    .build()
+                    .toJson()
                 log.info(
                     "Inventory reserved [orderId={}, reservationId={}]",
-                    order.id,
+                    order.orderId,
                     result.reservationId
                 )
             }
             is ReservationResult.Failed -> {
                 eventType = EventTypes.RESERVATION_FAILED
-                log.warn("Inventory reservation failed [orderId={}]", order.id)
+                payload = ReservationFailed.newBuilder()
+                    .setOrderId(order.orderId)
+                    .build()
+                    .toJson()
+                log.warn("Inventory reservation failed [orderId={}]", order.orderId)
             }
         }
 
         outboxRepository.save(
             InventoryOutbox(
-                orderId = UUID.fromString(order.id.toString()),
+                orderId = UUID.fromString(order.orderId),
                 eventType = eventType,
-                payload = order.toJson(),
+                payload = payload,
             )
         )
 

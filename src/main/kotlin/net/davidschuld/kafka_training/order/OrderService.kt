@@ -27,12 +27,10 @@ class OrderService(
         )
 
         val payload = OrderCreated.newBuilder()
-            .setId(order.id.toString())
+            .setOrderId(order.id.toString())
             .setCustomerId(order.customerId)
             .setProduct(order.product)
             .setQuantity(order.quantity)
-            .setStatus(order.status)
-            .setCreatedAt(order.createdAt.toString())
             .build()
             .toJson()
 
